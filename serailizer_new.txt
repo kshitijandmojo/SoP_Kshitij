@@ -1,0 +1,16 @@
+module serializer(input datain, input clk, output reg [WIDTH-1:0] dataout);
+
+reg [WIDTH-1:0] datas;
+integer count=0;
+
+always @(posedge clk)
+begin 
+	datas[count]=datain;
+	count<= count+1;
+	if(count ==WIDTH-1)
+	begin
+		dataout<=datas;
+	end
+end
+
+endmodule	

@@ -1,0 +1,317 @@
+module #(parameter XCORD=0,YCORD=0) switch (inout data,input datainl, input datainr, input dataint, input datainb, input datains, input clk, input reset);
+
+wire start;
+reg d_sl, d_sr, d_st, d_sb, d_ss;
+integer counter;
+integer SIDE;
+reg [1:0] x_coor;
+reg [1:0] y_coor;
+reg [23:0] data;
+reg [1:0] datasiz;
+reg [1:0] state;
+reg datain;
+localparam IDLE=2'b00,
+           GET_CORD = 2'b01,
+           STORE_SIZE = 2'b10,
+           STORE_DATA = 2'b11;
+
+always@(posedge clk)
+begin
+	
+	d_sl<=datainl;
+	d_sr<=datainr;
+	d_st<=dataint;
+	d_sb<=datainb;
+	d_ss<=datains;
+	
+        SIDE = 1*(datainl & !d_sl)+ 2*(datainr & !d_sr)+3*(dataint & !d_st)+4*(datainb & !d_sb)+5*(datains & !d_ss);
+end
+
+
+always @(posedge clk)
+begin
+	case(SIDE)
+		1:begin  datain <= datainl; end 
+		2:begin  datain <= datainr; end
+		3:begin  datain <= dataint; end
+		4:begin  datain <= datainb; end
+		5:begin  datain <= datains; end
+	endcase
+
+    if(reset)
+    begin
+        state <= IDLE;
+        counter <= 0;
+    end
+    else
+    begin
+        case(state)
+            IDLE:begin
+                if(start)
+                    state <= GET_CORD;
+			    else if(i_bus_req_right)
+				
+				else if(i_bus_req_top)
+				
+				
+				else if(i_bus_req_bottom)
+            end
+            GET_CORD:begin
+                if(counter < 2)
+                begin
+                    x_coor[counter] <= datain;
+                    counter <= counter+1;
+                end
+                else if(counter < 4)
+                begin
+                    y_coor[counter-2] <= datain;
+                    counter <= counter+1;
+			if(counter == 3)
+			begin
+				state=STORE_SIZE;
+			end
+                end
+               
+               
+            end
+            STORE_SIZE:begin
+                if(counter == 5)
+                begin
+                    datasiz[0] <= datain;
+                    counter <= counter+1;
+                end
+                else
+                begin
+                    state <= STORE_DATA;
+
+
+
+            	    counter <= {datain,datasiz[0]}*8;
+
+
+
+
+
+
+
+                    datasiz<= {datain,datasiz[0]};
+                end
+            end
+            STORE_DATA:begin
+                if(counter <= 0)
+                begin
+                    counter <= counter-1;
+                    data[counter]<=datain;
+                    state <= ROUTEING;
+                end 
+	    end
+            ROUTEING: begin
+                if(x_coor == XCORD && y_coor = YCORD)
+                begin
+                    state <= STORAGE;
+		 
+                end
+                if(XCORD > x_coor)
+                begin
+		    state1 <= TRIGHT;
+		    state <= SEND;
+		end
+		if(XCORD < x_coor)
+		begin
+		    state1 <= TLEFT;
+			bus_left_req = 1'b1;
+		    state <= SEND;
+		end
+		if(YCORD < y_coor)
+		begin
+		    state1 <= TTOP;
+		    state <= SEND;
+		end
+		if(YCORD > y_coor)
+		begin
+		    state1 <= TDOWN;
+		    state <= SEND;
+		end
+		counter =0;
+               
+			
+                end
+		
+	SEND: begin
+		case(state1)
+			TRIGHT: begin
+				if(counter==0 && datainr == 1 && s[1] == 0)begin
+					datainr<=0;
+					counter<=counter+1;
+					end;
+					else if(s[1]==1) begin
+					if(s[0]==0) begin
+					datainb <= datas[counter];
+					counter <= counter-1; end
+					if(counter == 0)begin 
+					s<={0,0}; 
+					state <= IDLE;
+                  			data<={0};
+                 			x_coor<={0};
+                    			y_coor<={0};
+                    			datasiz<={0};end
+					end
+
+					else begin counter <= datasiz*8; s[0] <= 0; end
+					end
+				else if (counter < 3) begin
+					datainr<=x_coor[counter-1];
+					counter<=counter+1;
+					end;	
+				else if(counter < 5) begin
+					datainr<=y_coor[counter-3];
+					counter<=counter+1;
+					end;
+				else if(counter < 7) begin
+					datainr<=datasiz[counter-5]
+					counter<=counter+1;
+					if(counter==6) begin s[1]>=1; s[0]>=1; end
+					end;
+				end;				
+			TLEFT: begin
+				if(counter==0 && datainl == 1 && s[1] == 0)begin
+					datainl<=0;
+					counter<=counter+1;
+					end;
+					else if(s[1]==1) begin
+					if(s[0]==0) begin
+					datainb <= datas[counter];
+					counter <= counter-1; end
+					if(counter == 0)begin 
+					s<={0,0}; 
+					state <= IDLE;
+                  			data<={0};
+                 			x_coor<={0};
+                    			y_coor<={0};
+                    			datasiz<={0};end
+					end
+
+					else begin counter <= datasiz*8; s[0] <= 0; end
+					end
+				else if (counter < 3) begin
+					datainl<=x_coor[counter-1];
+					counter<=counter+1;
+					end;	
+				else if(counter < 5) begin
+					datainl<=y_coor[counter-3];
+					counter<=counter+1;
+					end;
+				else if(counter < 7) begin
+ 					datainl<=datasiz[counter-5]
+					counter<=counter+1;
+					if(counter==6) begin s[1]>=1; s[0]>=1; end
+					end;
+				end;
+			TTOP: begin
+				if(counter==0 && dataint == 1 && s[1]== 0)begin
+					dataint<=0;
+					counter<=counter+1;
+					end;
+				else if(s[1]==1) begin
+					if(s[0]==0) begin
+					dataint <= datas[counter-1];
+					counter <= counter-1;
+					end
+
+					else begin counter <= datasiz*8; s[0] <= 0; end
+					end
+				else if (counter < 3) begin
+					dataint<=x_coor[counter-1];
+					counter<=counter+1;
+					end;	
+				else if(counter < 5) begin
+					dataint<=y_coor[counter-3];
+					counter<=counter+1;
+					end;
+				else if(counter < 7) begin
+ 					dataint<=datasiz[counter-5]
+					counter<=counter+1;
+					if(counter==6) begin s[1]>=1; s[0]>=1; end
+					end;
+				end;						
+			TBOTTOM: begin
+				if(counter==0 && datainb == 1 && s[1] == 0)begin
+					datainb<=0;
+					counter<=counter+1;
+					end;
+				else if(s[1]==1) begin
+					if(s[0]==0) begin
+					datainb <= datas[counter];
+					counter <= counter-1; end
+					if(counter == 0)begin 
+					s<={0,0}; 
+					state <= IDLE;
+                  			data<={0};
+                 			x_coor<={0};
+                    			y_coor<={0};
+                    			datasiz<={0};end
+					end
+
+					else begin counter <= datasiz*8; s[0] <= 0; end
+					end
+				else if (counter < 3) begin
+					datainb<=x_coor[counter-1];
+					counter<=counter+1;
+					end;	
+				else if(counter < 5) begin
+					datainb<=y_coor[counter-3];
+					counter<=counter+1;
+					end;
+				else if(counter < 7) begin
+ 					datainb<=datasiz[counter-5]
+					counter<=counter+1;
+					if(counter==6) begin s[1]>=1; s[0]>=1; end
+					end;
+				end;
+			
+
+
+               STORAGE_1: begin
+				if(counter==0 && datains == 1)begin
+					datains<=0;
+					counter<=counter+1;
+					end;
+				else if(s[1]==1) begin
+					if(s[0]==0) begin
+					datains <= datas[counter-1];
+					counter <= counter-1;
+					end
+
+					else begin counter <= datasiz*8; s[0] <= 0; end
+					end
+				else if (counter < 3) begin
+					datains<=x_coor[counter-1];
+					counter<=counter+1;
+					end;	
+				else if(counter < 5) begin
+					datains<=y_coor[counter-3];
+					counter<=counter+1;
+					end;
+				else if(counter < 7) begin
+ 					datains<=datasiz[counter-5]
+					counter<=counter+1;
+					if(counter==6) begin s[1]>=1; s[0]>=1; end
+					end;
+				end;
+                    state <= IDLE;
+                    data<={0};
+                    x_coor<={0};
+                    y_coor<={0};
+                    datasiz<={0};
+                     end                               
+        endcase
+    end
+
+end
+
+
+//serializer #(.WIDTH(30)) serializer(.datain, .clk, output reg [WIDTH-1:0] dataout);
+//deserializer #(.WIDTH(30)) deserializer(.datain, .clk, output reg [WIDTH-1:0] dataout);
+
+
+endmodule
