@@ -10,11 +10,12 @@ reg [23:0] data;
 reg [1:0] datasiz;
 reg [1:0] state;
 reg datain;
+reg [1:0] s <= 2'b00
 localparam IDLE=2'b00,
            GET_CORD = 2'b01,
            STORE_SIZE = 2'b10,
            STORE_DATA = 2'b11;
-
+ 
 always@(posedge clk)
 begin
 	
@@ -132,34 +133,19 @@ begin
 		    state1 <= TDOWN;
 		    state <= SEND;
 		end
-		counter =0;
-               
+		
+               counter <=1
 			
                 end
 		
 	SEND: begin
 		case(state1)
-			TRIGHT: begin
-				if(counter==0 && datainr == 1 && s[1] == 0)begin
-					datainr<=0;
-					counter<=counter+1;
-					end;
-					else if(s[1]==1) begin
-					if(s[0]==0) begin
-					datainb <= datas[counter];
-					counter <= counter-1; end
-					if(counter == 0)begin 
-					s<={0,0}; 
-					state <= IDLE;
-                  			data<={0};
-                 			x_coor<={0};
-                    			y_coor<={0};
-                    			datasiz<={0};end
-					end
+			TRIGHT: 
+										\\verify the verification method for decentralized router			
 
-					else begin counter <= datasiz*8; s[0] <= 0; end
-					end
-				else if (counter < 3) begin
+				begin
+				 
+				if (counter < 3) begin
 					datainr<=x_coor[counter-1];
 					counter<=counter+1;
 					end;	
@@ -170,30 +156,26 @@ begin
 				else if(counter < 7) begin
 					datainr<=datasiz[counter-5]
 					counter<=counter+1;
-					if(counter==6) begin s[1]>=1; s[0]>=1; end
+					if(counter==6) begin s[1]>=1; s[0]>=0; end
 					end;
-				end;				
-			TLEFT: begin
-				if(counter==0 && datainl == 1 && s[1] == 0)begin
-					datainl<=0;
-					counter<=counter+1;
-					end;
-					else if(s[1]==1) begin
-					if(s[0]==0) begin
-					datainb <= datas[counter];
-					counter <= counter-1; end
-					if(counter == 0)begin 
+				end;	
+				counter <={datasiz}*8-1
+				if(s[1]==1 && s[0] ==0)
+				begin
+					datainr <= datas[counter]
+					counter<=counter-1
+				end
+				else
+				begin
 					s<={0,0}; 
 					state <= IDLE;
                   			data<={0};
                  			x_coor<={0};
                     			y_coor<={0};
-                    			datasiz<={0};end
-					end
-
-					else begin counter <= datasiz*8; s[0] <= 0; end
-					end
-				else if (counter < 3) begin
+                    			datasiz<={0};
+				end		
+			TLEFT: begin
+				if (counter < 3) begin
 					datainl<=x_coor[counter-1];
 					counter<=counter+1;
 					end;	
@@ -202,25 +184,28 @@ begin
 					counter<=counter+1;
 					end;
 				else if(counter < 7) begin
- 					datainl<=datasiz[counter-5]
+					datainl<=datasiz[counter-5]
 					counter<=counter+1;
-					if(counter==6) begin s[1]>=1; s[0]>=1; end
+					if(counter==6) begin s[1]>=1; s[0]>=0; end
 					end;
-				end;
-			TTOP: begin
-				if(counter==0 && dataint == 1 && s[1]== 0)begin
-					dataint<=0;
-					counter<=counter+1;
-					end;
-				else if(s[1]==1) begin
-					if(s[0]==0) begin
-					dataint <= datas[counter-1];
-					counter <= counter-1;
-					end
-
-					else begin counter <= datasiz*8; s[0] <= 0; end
-					end
-				else if (counter < 3) begin
+				end;	
+				counter <={datasiz}*8-1
+				if(s[1]==1 && s[0] ==0)
+				begin
+					datainl <= datas[counter]
+					counter<=counter-1
+				end
+				else
+				begin
+					s<={0,0}; 
+					state <= IDLE;
+                  			data<={0};
+                 			x_coor<={0};
+                    			y_coor<={0};
+                    			datasiz<={0};
+				end
+			TTOP:begin
+				if (counter < 3) begin
 					dataint<=x_coor[counter-1];
 					counter<=counter+1;
 					end;	
@@ -229,32 +214,28 @@ begin
 					counter<=counter+1;
 					end;
 				else if(counter < 7) begin
- 					dataint<=datasiz[counter-5]
+					dataint<=datasiz[counter-5]
 					counter<=counter+1;
-					if(counter==6) begin s[1]>=1; s[0]>=1; end
+					if(counter==6) begin s[1]>=1; s[0]>=0; end
 					end;
-				end;						
-			TBOTTOM: begin
-				if(counter==0 && datainb == 1 && s[1] == 0)begin
-					datainb<=0;
-					counter<=counter+1;
-					end;
-				else if(s[1]==1) begin
-					if(s[0]==0) begin
-					datainb <= datas[counter];
-					counter <= counter-1; end
-					if(counter == 0)begin 
+				end;	
+				counter <={datasiz}*8-1
+				if(s[1]==1 && s[0] ==0)
+				begin
+					dataint <= datas[counter]
+					counter<=counter-1
+				end
+				else
+				begin
 					s<={0,0}; 
 					state <= IDLE;
                   			data<={0};
                  			x_coor<={0};
                     			y_coor<={0};
-                    			datasiz<={0};end
-					end
-
-					else begin counter <= datasiz*8; s[0] <= 0; end
-					end
-				else if (counter < 3) begin
+                    			datasiz<={0};
+				end						
+			TBOTTOM:begin
+				if (counter < 3) begin
 					datainb<=x_coor[counter-1];
 					counter<=counter+1;
 					end;	
@@ -263,12 +244,26 @@ begin
 					counter<=counter+1;
 					end;
 				else if(counter < 7) begin
- 					datainb<=datasiz[counter-5]
+					datainb<=datasiz[counter-5]
 					counter<=counter+1;
-					if(counter==6) begin s[1]>=1; s[0]>=1; end
+					if(counter==6) begin s[1]>=1; s[0]>=0; end
 					end;
-				end;
-			
+				end;	
+				counter <={datasiz}*8-1
+				if(s[1]==1 && s[0] ==0)
+				begin
+					datainb <= datas[counter]
+					counter<=counter-1
+				end
+				else
+				begin
+					s<={0,0}; 
+					state <= IDLE;
+                  			data<={0};
+                 			x_coor<={0};
+                    			y_coor<={0};
+                    			datasiz<={0};
+				end			
 
 
                STORAGE_1: begin
