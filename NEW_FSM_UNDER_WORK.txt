@@ -1,0 +1,213 @@
+module #(parameter XCORD=0,YCORD=0) switch (inout data, input datainl, input datainr, input dataint, input datainb, input datains, input clk, input reset);
+
+
+always(@posedge clk)
+begin
+
+if(idle==1)
+begin
+	case(state)									//data intake code made, for external sender straight to buffer
+		GET_PARM_IN: 
+		begin
+			buffer_in_use<=1;
+			counter <= 0;
+			
+			if(counter<2)
+			begin
+				counter <= counter+1;					//x_coordinate of destination
+				x[counter]<=data_1;
+			end
+			else if(counter<4)
+			begin
+				counter <= counter+1;					//y_coordinate of destination
+				y[counter-2]<=data_1;
+			end
+			else if(counter<6)
+			begin
+				counter <= counter+1;
+				siz[counter-4]<=data_1;				//siz of data packet in byte
+				if(counter == 5)
+				begin
+					state <= GET_DATA;
+					counter <= siz[0]*16 + data_1*8;
+				end
+			end	
+		end
+			end
+		GET_DATA: begin
+			if(counter>0)
+			begin
+				data[counter] <= data_in;
+				counter <= counter-1;
+			end
+			else
+			begin
+				
+					state <= REQUEST_SEND_TO_EXTERNAL;		
+					buffer_full <= 1;
+			end
+		end
+end
+always(@posedge clk)
+begin
+											//request receive & action module
+
+	if(state <= ROUTER)
+	begin
+		if(r_1 == 1 && s[0] == 0)						//request lines r_1,r_2,r_3, r_4 and round robin tracker s[0:3] 
+		begin
+			
+			s[0] <= 1;
+			idle <= 0;							//data_in is by default 0 and made 1 to request,to refuse, other simply holds data_in at 0
+				
+			state <= REQUEST_SEND_TO_EXTERNAL;
+		end
+		else if(r_2 == 1 && s[1] == 0)
+		begin
+			
+			s[1] <= 1;
+			
+			state <= REQUEST_SEND_TO_EXTERNAL;			//all s[0],s[1],s[2],s[3] will be set zero, after data transfer is complete,so it will remain zero
+			idle <= 0;	
+		end
+		else if(r_3 == 1 && s[2] == 0)
+		begin
+			
+			s[2] <= 1;
+			
+			idle <= 0;
+			state <= REQUEST_SEND_TO_EXTERNAL;
+		end
+
+		else if(r_4 == 1 && s[3] == 0)
+		begin
+			
+			s[3] <= 1;
+			
+			idle <= 0;
+			state <= REQUEST_SEND_TO_EXTERNAL;
+		end
+	end
+
+	
+			
+	if(state <= REQUEST_SEND_TO_EXTERNAL)				//data_in is by default 0 and made 1 to request,to refuse, other simply holds data_in at 0
+	begin
+		data_in <= 1;					//this is the code for REQUEST_SEND_TO_EXTERNAL state
+		if(data_in == 1)
+		begin
+			if(buffer_full == 1)
+			begin
+				counter <= 0;
+				state <= TRANSFER_BUFFER_PARM_TO_EXTERNAL;
+			end
+			else if((s[0]||s[1]||s[2]) == 1)	
+			begin
+				ack_1 <= s[0];
+				ack_2 <= s[1];
+				ack_3 <= s[2];	
+				counter <= 1;
+				state <= PASS_PACKET;
+			end	
+		end
+	end
+	if(state <= PASS_PACKET)
+	begin
+		counter <= counter+1;
+		if(counter>1)
+		begin
+			data_in <= ((data_1 && s[0])||(data_2 && s[1])||(data_3 && s[2])||(data_4 && s[3]));		//combined multiple cases using s series, as when s[x-1] ==1, that line is getting used
+		end
+
+		if(((r_1 && s[0])||(r_2 && s[1])||(r_3 && s[2])||(r_4 && s[3]) == 0)			
+		begin													//when packet transfer is complete, r_x which was 1 entire time, will be made 0 by sender
+			state <= ROUTER;
+			
+		end
+	end
+end
+always (@posedge clk)
+begin
+	if(state == TRANSFER_BUFFER_PARM_TO_EXTERNAL)
+	begin
+					 					//transfer buffer data to external
+		if (counter < 3) 
+		begin
+			data_in<=x[counter-1];
+			counter<=counter+1;
+		end	
+		else if(counter < 5) 
+		begin
+			data_in<=y[counter-3];
+			counter<=counter+1;
+		end
+		else if(counter < 7)
+		begin
+			data_in <= siz[counter-5]
+			counter <= counter + 1;
+			if(counter == 6)
+			begin
+				counter <= siz[1]*16 +siz[0]*8;
+				state <= TRANSFER_BUFFER_DATA;
+			end
+		end
+	end
+	if(state <= TRANSFER_BUFFER_DATA)
+	begin
+		data_in <= data[counter];
+		counter <= counter-1;
+		if(counter == 1)
+		begin
+			state <= ROUTING;
+		end			
+	end
+end
+
+
+always (@posedge clk)
+begin
+	if(state--------)
+	begin
+		if(x > x_coor)
+		begin
+			r_2 <= 1;
+			r <= {0};
+			r[1] <= 1;
+		end
+		if(x < x_coor)
+		begin
+			datain <= 1;
+			r <= {0};
+			r[4] <= 1;
+		end
+		if(y > y_coor)
+		begin
+			r_1 <= 1;
+			r <= {0};
+			r[0] <= 1;
+		end
+		if(y < y_coor)
+		begin
+			r_3 <= 1;
+			r <= {0};
+			r[2] <= 1;
+		end
+	end										//request maker module. r be round robin tracker between sending and receiving, alternating between both 
+
+always(@posedge clk)
+begin
+	if(state <= ACK_WAITING)								//the data sending to other nodes throunh passing
+	begin
+		
+
+
+
+
+
+
+
+//serializer #(.WIDTH(30)) serializer(.datain, .clk, output reg [WIDTH-1:0] dataout);
+//deserializer #(.WIDTH(30)) deserializer(.datain, .clk, output reg [WIDTH-1:0] dataout);
+
+
+endmodule
