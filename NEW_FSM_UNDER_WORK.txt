@@ -1,10 +1,31 @@
-module #(parameter XCORD=0,YCORD=0) switch (inout data, input datainl, input datainr, input dataint, input datainb, input datains, input clk, input reset);
+module #(parameter x_coor=0, y_coor=0, l=0, u=0) switch (inout data_in, in data_1, in data_2, in data_3, in data_4, in r_1, in r_2, in r_3, in r_4, in ack_1, in ack_2, in ack_3, in ack_4);
+
+state <= ROUND_ROBIN;
+reg buffer_in_use;
+buffer_in_use <= 0;
+reg buffer_full;
+buffer_full <= 0;
+integer counter;
+reg [0:1] x;
+reg [0:1] y;
+reg [0:23] data;
+reg [0:3] state;
+
+
+GET_PARM_IN = 0000
+GET_DATA = 0001
+ROUND_ROBIN = 0010
+TRANSFER_BUFFER_PARM_INTERNAL = 0011
+REQUEST_SEND_TO_EXTERNAL = 0100
+TRANSFER_BUFFER_PARM_TO_EXTERNAL = 0101
+TRANSFER_BUFFER_DATA_TO_EXTERNAL = 0110
+MAKE_REQUEST = 0111
+TRANSFER_BUFFER_DATA_INTERNAL = 1000
 
 
 always(@posedge clk)
-begin
 
-if(idle==1)
+
 begin
 	case(state)									//data intake code made, for external sender straight to buffer
 		GET_PARM_IN: 
@@ -29,13 +50,13 @@ begin
 				if(counter == 5)
 				begin
 					state <= GET_DATA;
-					counter <= siz[0]*16 + data_1*8;
+					counter <= siz[0]*8 + data_1*16 - 1;
 				end
 			end	
 		end
 			end
 		GET_DATA: begin
-			if(counter>0)
+			if(counter>=0)
 			begin
 				data[counter] <= data_in;
 				counter <= counter-1;
@@ -43,66 +64,190 @@ begin
 			else
 			begin
 				
-					state <= REQUEST_SEND_TO_EXTERNAL;		
+					state <= MAKE_REQUEST;		
 					buffer_full <= 1;
 			end
 		end
-end
-always(@posedge clk)
-begin
+
 											//request receive & process module
 
-	if(state <= ROUND_ROBIN)
+	ROUND_ROBIN:
 	begin
-		if(r_1 == 1 && r[0] == 0)						//request lines r_1,r_2,r_3, r_4 and side select tracker s[0:3] and roundrobin tracker r[0:3] 
+		if(r_1 == 1 && r[0] == 0 )						//request lines r_1,r_2,r_3, r_4 and side select tracker s[0:3] and roundrobin tracker r[0:3] 
 		begin
 			
 			s[0] <= 1;
 			idle <= 0;							//data_in is by default 0 and made 1 to request,to refuse, other simply holds data_in at 0
 			r[0] <= 1 ;	
 			state <= REQUEST_SEND_TO_EXTERNAL;
+			data_in <= 0;
 		end
-		else if(r_2 == 1 && r[1] == 0)
+		else if(r_2 == 1 && r[1] == 0 )
 		begin
 			
 			s[1] <= 1;
 			r[1] <= 1;
+			data_in <= 0;
 			state <= REQUEST_SEND_TO_EXTERNAL;			//all s[0],s[1],s[2],s[3] will be set zero, after data transfer is complete,so it will remain zero
 			idle <= 0;	
 		end
-		else if(r_3 == 1 && r[2] == 0)
+		else if(r_3 == 1 && r[2] == 0 )
 		begin
 			
 			s[2] <= 1;
 			r[2] <= 1;
+			data_in <= 0;
 			idle <= 0;
 			state <= REQUEST_SEND_TO_EXTERNAL;
 		end
 
-		else if(r_4 == 1 && r[3] == 0)
+		else if(r_4 == 1 && r[3] == 0 )
 		begin
 			
 			s[3] <= 1;
 			r[3] <= 1;
+			data_in <= 0;
 			idle <= 0;
 			state <= REQUEST_SEND_TO_EXTERNAL;
 		end
+
+		else if(ack_1||ack_2||ack_3||ack_4 == 1 )								//ACK waiting, incase buffer is empty
+		begin
+			state <= TRANSFER_BUFFER_PARM_INTERNAL;
+			counter <= 0;
+			data_in <= 0;
+		end
+		else if(data_in == 1)
+		begin
+			state <= GET_PARM_IN;
+
 		else
 		begin
 			r<={0};
 		end
 	end
 
-	
+	TRANSFER_BUFFER_PARM_INTERNAL:
+	begin
+		
+		data_in <= 0;
+		if(counter < 2)
+		begin
+			if(r_1 == 1)
+			begin
+				data_1 <= x[counter];	
+			end
+			if(r_2 == 1)
+			begin
+				data_2 <=x[counter];
+			end
+			if(r_3 == 1)
+			begin
+				data_3 <= x[counter];	
+			end
+			if(r_4 == 1)
+			begin
+				data_4 <=x[counter];
+			end
+		end
+		if(counter < 4)
+		begin
+			if(r_1 == 1)
+			begin
+				data_1 <= y[counter-2];	
+			end
+			if(r_2 == 1)
+			begin
+				data_2 <=y[counter-2];
+			end
+			if(r_3 == 1)
+			begin
+				data_3 <= y[counter-2];	
+			end
+			if(r_4 == 1)
+			begin
+				data_4 <=y[counter-2];
+			end
+		end
+		if(counter < 6)
+		begin
+			if(r_1 == 1)
+			begin
+				data_1 <= siz[counter-4];
+				if(counter == 5)
+				begin
+					counter <= siz*8;
+					state <= TRANSFER_BUFFER_DATA_INTERNAL;
+				end
+			end
+			if(r_2 == 1)
+			begin
+				data_2 <=siz[counter-4];
+				if(counter == 5)
+				begin
+					counter <= siz*8;
+					state <= TRANSFER_BUFFER_DATA_INTERNAL;
+				end
+			end
+			if(r_3 == 1)
+			begin
+				data_3 <= siz[counter-4];
+				if(counter == 5)
+				begin
+					counter <= siz*8;
+					state <= TRANSFER_BUFFER_DATA_INTERNAL;
+				end	
+			end
+			if(r_4 == 1)
+			begin
+				data_4 <= siz[counter-4];
+				if(counter == 5)
+				begin
+					counter <= siz*8;
+					state <= TRANSFER_BUFFER_DATA_INTERNAL;
+				end
+			end
+		end
+	end
+	TRANSFER_BUFFER_DATA_INTERNAL:
+	begin
+		
+		data_in <= 0;
+		if(counter>0)
+		begin
+			counter <= counter - 1;
+			if(r_1 == 1)
+			begin
+				data_1 <= data[counter];	
+			end
+			if(r_2 == 1)
+			begin
+				data_2 <=data[counter];
+			end
+			if(r_3 == 1)
+			begin
+				data_3 <= data[counter];	
+			end
+			if(r_4 == 1)
+			begin
+				data_4 <=data[counter];
+			end
+		end
+		else
+		begin
+			buffer_full <= 0;
+			buffer_in_use <= 0;
+			state <= ROUND_ROBIN;
+		end
 			
-	if(state <= REQUEST_SEND_TO_EXTERNAL)					//data_in is by default 0 and made 1 to request,to refuse, other simply holds data_in at 0
+	REQUEST_SEND_TO_EXTERNAL:					//data_in is by default 0 and made 1 to request,to refuse, other simply holds data_in at 0
 	begin
 		data_in <= 1;							//this is the code for REQUEST_SEND_TO_EXTERNAL state
 		if(data_in == 1)
 		begin
 			if(buffer_full == 1)
 			begin
-				counter <= 0;
+				counter <= 0;						//may not happen check
 				state <= TRANSFER_BUFFER_PARM_TO_EXTERNAL;
 			end
 			else if((s[0]||s[1]||s[2]||s[3]) == 1)	
@@ -111,30 +256,15 @@ begin
 				ack_2 <= s[1];
 				ack_3 <= s[2];	
 				ack_4 <= s[3];
-				counter <= 1;										//done to account for transfer starting delay on other fsm LINE_1
-				
-				state <= PASS_PACKET;
+				counter <= 0;										//done to account for transfer starting delay on other fsm LINE_1
+															
+				state <= TRANSFER_BUFFER_PARM_INTERNAL;
 			end	
 		end
 	end
-	if(state <= PASS_PACKET)
-	begin
-		counter <= counter+1;											//done to account for the transfer starting delay on other fsm LINE_2
-		if(counter>1)
-		begin
-			data_in <= ((data_1 && s[0])||(data_2 && s[1])||(data_3 && s[2])||(data_4 && s[3]));		//combined multiple cases using s series, as when s[x-1] ==1, that line is getting used
-		end
+	
 
-		if(((r_1 && s[0])||(r_2 && s[1])||(r_3 && s[2])||(r_4 && s[3]) == 0)			
-		begin													//when packet transfer is complete, r_x which was 1 entire time, will be made 0 by sender
-			state <= ROUTER;
-			
-		end
-	end
-end
-always (@posedge clk)
-begin
-	if(state == TRANSFER_BUFFER_PARM_TO_EXTERNAL)
+	TRANSFER_BUFFER_PARM_TO_EXTERNAL:
 	begin
 										//transfer buffer data to external
 		if (counter < 3) 
@@ -158,7 +288,7 @@ begin
 			end
 		end
 	end
-	if(state <= TRANSFER_BUFFER_DATA_TO_EXTERNAL)
+	TRANSFER_BUFFER_DATA_TO_EXTERNAL:
 	begin
 		data_in <= data[counter];
 		counter <= counter-1;
@@ -170,9 +300,8 @@ begin
 end
 
 
-always (@posedge clk)
-begin
-	if(state== MAKE_REQUEST)							//request maker module
+
+	MAKE_REQUEST:						//request maker module
 	begin
 		
 		if(x > x_coor && l == 1)						// l & u are directional indicators, to indicate the positioning of the FSM in the node
@@ -182,7 +311,8 @@ begin
 		end
 		else if(x > x_coor && l == 0)
 		begin
-			datain <= 1;
+			data_in <= 1;
+			state <= REQUEST_SEND_TO_EXTERNAL;
 
 		end
 		else if(y > y_coor && u == 1)
@@ -196,7 +326,8 @@ begin
 		end
 		else if(x < x_coor && l == 1)
 		begin
-			datain <= 1;
+			data_in <= 1;
+			state <= REQUEST_SEND_TO_EXTERNAL;
 
 		end
 		else if(x < x_coor && l == 0)
@@ -214,58 +345,53 @@ begin
 			r_1 <= 1;
 		end
 	end										
-always(@posedge clk)
-begin
-	if(state <= ACK_WAITING)								//ACK waiting, incase buffer is empty
+
+	
+	TRANSFER_BUFFER_PARM_INTERNAL:
 	begin
-		if(ack_1||ack_2||ack_3||ack_4 == 1)					
-		begin
-			state <= TRANSFER_BUFFER_PARM_INTERNAL;
-		end
-	end
-	if(state <= TRANSFER_BUFFER_PARM_INTERNAL)
-	begin
+		counter <= counter + 1;
+		data_in <= 0;
 		if(counter < 2)
 		begin
-			if(ack_1 == 1)
+			if(r_1 == 1)
 			begin
 				data_1 <= x[counter];	
 			end
-			if(ack_2 == 1)
+			if(r_2 == 1)
 			begin
 				data_2 <=x[counter];
 			end
-			if(ack_3 == 1)
+			if(r_3 == 1)
 			begin
 				data_3 <= x[counter];	
 			end
-			if(ack_4 == 1)
+			if(r_4 == 1)
 			begin
 				data_4 <=x[counter];
 			end
 		end
 		if(counter < 4)
 		begin
-			if(ack_1 == 1)
+			if(r_1 == 1)
 			begin
 				data_1 <= y[counter-2];	
 			end
-			if(ack_2 == 1)
+			if(r_2 == 1)
 			begin
 				data_2 <=y[counter-2];
 			end
-			if(ack_3 == 1)
+			if(r_3 == 1)
 			begin
 				data_3 <= y[counter-2];	
 			end
-			if(ack_4 == 1)
+			if(r_4 == 1)
 			begin
 				data_4 <=y[counter-2];
 			end
 		end
 		if(counter < 6)
 		begin
-			if(ack_1 == 1)
+			if(r_1 == 1)
 			begin
 				data_1 <= siz[counter-4];
 				if(counter == 5)
@@ -274,7 +400,7 @@ begin
 					state <= TRANSFER_BUFFER_DATA_INTERNAL;
 				end
 			end
-			if(ack_2 == 1)
+			if(r_2 == 1)
 			begin
 				data_2 <=siz[counter-4];
 				if(counter == 5)
@@ -283,7 +409,7 @@ begin
 					state <= TRANSFER_BUFFER_DATA_INTERNAL;
 				end
 			end
-			if(ack_3 == 1)
+			if(r_3 == 1)
 			begin
 				data_3 <= siz[counter-4];
 				if(counter == 5)
@@ -292,7 +418,7 @@ begin
 					state <= TRANSFER_BUFFER_DATA_INTERNAL;
 				end	
 			end
-			if(ack_4 == 1)
+			if(r_4 == 1)
 			begin
 				data_4 <= siz[counter-4];
 				if(counter == 5)
@@ -303,27 +429,39 @@ begin
 			end
 		end
 	end
-	if(state <= TRANSFER_BUFFER_DATA_INTERNAL)
+	TRANSFER_BUFFER_DATA_INTERNAL:
 	begin
+		
+		data_in <= 0;
+		if(counter >= 0)
+		begin
 			counter <= counter - 1;
-			if(ack_1 == 1)
+			if(r_1 == 1)
 			begin
 				data_1 <= data[counter];	
 			end
-			if(ack_2 == 1)
+			if(r_2 == 1)
 			begin
 				data_2 <=data[counter];
 			end
-			if(ack_3 == 1)
+			if(r_3 == 1)
 			begin
 				data_3 <= data[counter];	
 			end
-			if(ack_4 == 1)
+			if(r_4 == 1)
 			begin
 				data_4 <=data[counter];
 			end
 		end
+		else
+		begin
+			buffer_full <= 0;
+			buffer_in_use <= 0;
+			state <= ROUND_ROBIN;
+		end
 end
+
+
 //serializer #(.WIDTH(30)) serializer(.datain, .clk, output reg [WIDTH-1:0] dataout);
 //deserializer #(.WIDTH(30)) deserializer(.datain, .clk, output reg [WIDTH-1:0] dataout);
 
